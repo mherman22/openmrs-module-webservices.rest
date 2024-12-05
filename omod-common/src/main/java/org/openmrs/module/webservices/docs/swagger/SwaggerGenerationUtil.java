@@ -21,9 +21,11 @@ import io.swagger.models.properties.Property;
 import io.swagger.models.properties.RefProperty;
 import io.swagger.models.properties.StringProperty;
 import org.apache.commons.lang.StringUtils;
+import org.openmrs.api.context.Context;
 import org.openmrs.module.webservices.docs.swagger.core.property.EnumProperty;
 import org.openmrs.module.webservices.rest.web.annotation.Resource;
 import org.openmrs.module.webservices.rest.web.annotation.SubResource;
+import org.openmrs.module.webservices.rest.web.api.RestService;
 import org.openmrs.module.webservices.rest.web.representation.Representation;
 import org.openmrs.module.webservices.rest.web.resource.impl.DelegatingResourceDescription;
 import org.openmrs.module.webservices.rest.web.resource.impl.DelegatingResourceHandler;
@@ -295,7 +297,7 @@ public class SwaggerGenerationUtil {
         }  else if (Set.class.equals(type) || List.class.equals(type)) {
             Class<?> elementType = getGenericTypeFromField(field);
             if (isOpenMRSResource(elementType)) {
-                String resourceName = getResourceNameBySupportedClass(elementType);
+                String resourceName = getSubResourceNameBySupportedClass(elementType);
                 if (resourceName == null) {
                     return new StringProperty();
                 }
@@ -331,6 +333,31 @@ public class SwaggerGenerationUtil {
                 String combinedName = capitalize(resourceParentName) + capitalize(resourceName);
                 return combinedName.replace("/", "");
             }
+        }
+        return null;
+    }
+
+    public static String getSubResourceNameBySupportedClass(Class<?> supportedClass) {
+        org.openmrs.module.webservices.rest.web.resource.api.Resource resource = Context.getService(RestService.class).getResourceHandlerForSupportedClass(supportedClass);
+
+        if (resource == null) {
+            return null;
+        }
+
+        Resource annotation = resource.getClass().getAnnotation(Resource.class);
+        SubResource subResourceAnnotation = resource.getClass().getAnnotation(SubResource.class);
+
+        if (annotation != null && annotation.supportedClass().equals(supportedClass)) {
+            return annotation.name().substring(annotation.name().indexOf('/') + 1);
+        } else if (subResourceAnnotation != null && subResourceAnnotation.supportedClass().equals(supportedClass)) {
+            Resource parentResourceAnnotation = subResourceAnnotation.parent().getAnnotation(Resource.class);
+
+            String resourceName = subResourceAnnotation.path();
+            String resourceParentName = parentResourceAnnotation.name().substring(
+                    parentResourceAnnotation.name().indexOf('/') + 1);
+
+            String combinedName = capitalize(resourceParentName) + capitalize(resourceName);
+            return combinedName.replace("/", "");
         }
         return null;
     }
