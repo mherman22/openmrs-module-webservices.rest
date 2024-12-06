@@ -35,8 +35,9 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -59,16 +60,10 @@ public class SwaggerGenerationUtil {
 
     private static final Logger logger = LoggerFactory.getLogger(SwaggerGenerationUtil.class);
 
-    // Static list to hold resource handlers
-    private static final List<DelegatingResourceHandler<?>> resourceHandlers = new ArrayList<DelegatingResourceHandler<?>>();
+    private static final Map<Class<?>, DelegatingResourceHandler<?>> resourceHandlers = new HashMap<Class<?>, DelegatingResourceHandler<?>>();
 
-    /**
-     * Adds a resource handler to the internal list.
-     *
-     * @param resourceHandler the resource handler to add
-     */
     public static void addResourceHandler(DelegatingResourceHandler<?> resourceHandler) {
-        resourceHandlers.add(resourceHandler);
+        resourceHandlers.put(resourceHandler.getClass(), resourceHandler);
     }
 
     /**
@@ -250,7 +245,7 @@ public class SwaggerGenerationUtil {
     public static Property determinePropertyForField(DelegatingResourceHandler<?> resourceHandler, String propertyName, String operationType) {
         Class<?> genericType = getGenericType(resourceHandler.getClass());
         if (genericType == null) {
-            //worst case scenario, no parameterized superclass / interface found in the class hierarchy
+            // Worst case scenario, no parameterized superclass / interface found in the class hierarchy
             throw new IllegalArgumentException("No generic type for resource handler");
         }
 
@@ -258,6 +253,7 @@ public class SwaggerGenerationUtil {
             Field field = genericType.getDeclaredField(propertyName);
             return createPropertyForType(field.getType(), operationType, field);
         } catch (NoSuchFieldException e) {
+            logger.warn("Field {} not found in class {}", propertyName, genericType.getName());
             return new StringProperty();
         }
     }
@@ -317,7 +313,7 @@ public class SwaggerGenerationUtil {
      *         or "null" if no match is found
      */
     public static String getResourceNameBySupportedClass(Class<?> supportedClass) {
-        for (DelegatingResourceHandler<?> resourceHandler : resourceHandlers) {
+        for (DelegatingResourceHandler<?> resourceHandler : resourceHandlers.values()) {
             Resource annotation = resourceHandler.getClass().getAnnotation(Resource.class);
             SubResource subResourceAnnotation = resourceHandler.getClass().getAnnotation(SubResource.class);
 
