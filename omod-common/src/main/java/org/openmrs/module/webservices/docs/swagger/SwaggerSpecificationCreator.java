@@ -77,8 +77,6 @@ public class SwaggerSpecificationCreator {
 
 	private static Swagger swagger;
 
-	private static String cachedJson;
-
 	private String host;
 
 	private String basePath;
@@ -148,15 +146,14 @@ public class SwaggerSpecificationCreator {
 	}
 
 	public String getJSON() {
-		if (isCached() && cachedJson != null) {
+		if (isCached()) {
 			log.info("Returning a cached copy of Swagger specification");
-			return cachedJson;
+			initSwagger();
+		} else {
+			swagger = new Swagger();
+			BuildJSON();
 		}
-
-		swagger = new Swagger();
-		BuildJSON();
-		cachedJson = createJSON();
-		return cachedJson;
+		return createJSON();
 	}
 
 	private void addDefaultDefinitions() {
@@ -834,8 +831,8 @@ public class SwaggerSpecificationCreator {
 
 			Map<String, Property> properties = definition.getProperties();
 
-//			 2. merge subclass properties into definition
-			for (Map.Entry<String, Property> prop : SwaggerGenerationUtil.generateGETModel(resourceHandler, Representation.FULL).getProperties()
+			// 2. merge subclass properties into definition
+			for (Map.Entry<String, Property> prop : resourceHandler.getGETModel(Representation.FULL).getProperties()
 					.entrySet()) {
 				if (properties.get(prop.getKey()) == null) {
 					properties.put(prop.getKey(), prop.getValue());
@@ -845,6 +842,36 @@ public class SwaggerSpecificationCreator {
 			// 3. update description
 			post.setDescription("Certain properties may be required depending on type");
 		}
+	}
+
+	@Deprecated
+	private List<org.openmrs.module.webservices.docs.swagger.Parameter> getParametersListForSearchHandlers(
+			String resourceName, String searchHandlerId, int queryIndex) {
+		List<org.openmrs.module.webservices.docs.swagger.Parameter> parameters = new ArrayList<org.openmrs.module.webservices.docs.swagger.Parameter>();
+		String resourceURL = getResourceUrl(getBaseUrl(), resourceName);
+		for (SearchHandlerDoc searchDoc : searchHandlerDocs) {
+			if (searchDoc.getSearchHandlerId().equals(searchHandlerId) && searchDoc.getResourceURL().equals(resourceURL)) {
+				SearchQueryDoc queryDoc = searchDoc.getSearchQueriesDoc().get(queryIndex);
+				for (SearchParameter requiredParameter : queryDoc.getRequiredParameters()) {
+					org.openmrs.module.webservices.docs.swagger.Parameter parameter = new org.openmrs.module.webservices.docs.swagger.Parameter();
+					parameter.setName(requiredParameter.getName());
+					parameter.setIn("query");
+					parameter.setDescription("");
+					parameter.setRequired(true);
+					parameters.add(parameter);
+				}
+				for (SearchParameter optionalParameter : queryDoc.getOptionalParameters()) {
+					org.openmrs.module.webservices.docs.swagger.Parameter parameter = new org.openmrs.module.webservices.docs.swagger.Parameter();
+					parameter.setName(optionalParameter.getName());
+					parameter.setIn("query");
+					parameter.setDescription("");
+					parameter.setRequired(false);
+					parameters.add(parameter);
+				}
+				break;
+			}
+		}
+		return parameters;
 	}
 
 	private String createJSON() {
@@ -1202,12 +1229,11 @@ public class SwaggerSpecificationCreator {
 	 * @return true if and only if swagger is not null, and its paths are also set.
 	 */
 	public static boolean isCached() {
-		return swagger != null && swagger.getPaths() != null && !swagger.getPaths().isEmpty();
+		return swagger != null && swagger.getPaths() != null;
 	}
 
 	public static void clearCache() {
 		swagger = null;
-		cachedJson = null;
 	}
 
 }
