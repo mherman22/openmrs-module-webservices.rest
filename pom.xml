@@ -472,6 +472,7 @@
 				<module>omod-2.7</module>
 				<module>omod</module>
 				<module>integration-tests</module>
+				<module>omod-openapi</module>
 			</modules>
 		</profile>
 
@@ -534,6 +535,7 @@
 				<module>omod-2.7</module>
 				<module>omod</module>
 				<module>integration-tests</module>
+				<module>omod-openapi</module>
 			</modules>
 
 			<build>
